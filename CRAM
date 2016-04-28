@@ -63,7 +63,7 @@ testVuln () {
 	fi
 
 	## Exit if no additional rounds are requested ##
-	if test $rounds == "0"
+	if test "$rounds" -eq "0"
 	then
 		printf "\nNo additional requests were performed.\n\n"
 		exit 2
@@ -89,7 +89,7 @@ request () {
 }
 
 response () {
-	if test "$req"
+	if test "$(echo "$req"|wc -c)" -gt 34
 	then
 		success
 	else
