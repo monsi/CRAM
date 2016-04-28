@@ -16,7 +16,7 @@ testLogon () {
 
 	if ! test "$lpOpen"
 	then
-		lpOpen=$(curl -k -s $logout|grep -o "username_field")
+		lpOpen=$(curl -k -s -H "Cookie: webvpnLang=en;" $logout|grep -o "username_field")
 		if ! test "$lpOpen"
 		then
 			printf "It was not possible to access the logon/logout page\n"
