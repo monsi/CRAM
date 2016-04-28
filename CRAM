@@ -12,12 +12,12 @@ testLogon () {
 	logon="https://$target/+CSCOE+/logon.html?"
 	### The logout page appears to make it so we do not need to worry about WebLaunch ###
 	logout="https://$target/+CSCOE+/logout.html?reason=12"
-	lpOpen=$(curl -k -I -s $logon|grep -o "webvpnlogin=1")
+	lpOpen=$(curl -k -s $logon|grep -o "webvpnlogin=1")
 
-	if test ! "$lpOpen"
+	if ! test "$lpOpen"
 	then
 		lpOpen=$(curl -k -s $logout|grep -o "username_field")
-		if test ! "$lpOpen"
+		if ! test "$lpOpen"
 		then
 			printf "It was not possible to access the logon/logout page\n"
 			exit 99
